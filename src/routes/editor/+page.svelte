@@ -45,10 +45,16 @@ console.log("Beautiful code");
 > A simple quote to make things interesting.
 `;
 
-  const STORAGE_KEY = "paper-markdown-content";
-  const STORAGE_THEME = "paper-theme";
-  const STORAGE_FONT = "paper-font";
-  const STORAGE_WATERMARK = "paper-watermark";
+  const STORAGE_KEY = "paper-editor-state";
+
+  interface EditorState {
+    markdown: string;
+    theme: string;
+    font: string;
+    watermark: boolean;
+    paperId: string | null;
+    paperTitle: string;
+  }
 
   let markdown = $state(DEFAULT_CONTENT);
   let previewTheme = $state("paper");
@@ -68,8 +74,14 @@ console.log("Beautiful code");
   let showConfirmDialog = $state(false);
   let confirmAction: (() => void) | null = null;
   let textarea = $state<HTMLTextAreaElement>();
+  let showRestoreDialog = $state(false);
+  let restorableState: EditorState | null = null;
 
-  let previewHtml = $derived(md.render(markdown));
+  let previewHtml = $state(md.render(markdown));
+
+  $effect(() => {
+    previewHtml = md.render(markdown);
+  });
 
   onMount(() => {
     authStore.init();
@@ -79,13 +91,25 @@ console.log("Beautiful code");
     });
 
     const unsubscribePapers = papersStore.subscribe((state) => {
-      if (state.currentPaper && !currentPaperId) {
+      if (state.currentPaper && state.currentPaper.$id !== currentPaperId) {
         markdown = state.currentPaper.content;
         previewTheme = state.currentPaper.theme;
         previewFont = state.currentPaper.font;
         includeWatermark = state.currentPaper.watermark;
         currentPaperId = state.currentPaper.$id;
         currentPaperTitle = state.currentPaper.title;
+
+        if (browser) {
+          const editorState: EditorState = {
+            markdown: state.currentPaper.content,
+            theme: state.currentPaper.theme,
+            font: state.currentPaper.font,
+            watermark: state.currentPaper.watermark,
+            paperId: state.currentPaper.$id,
+            paperTitle: state.currentPaper.title,
+          };
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(editorState));
+        }
       }
     });
 
@@ -97,16 +121,38 @@ console.log("Beautiful code");
 
   $effect(() => {
     if (browser && !isLoaded) {
-      const storedMarkdown = localStorage.getItem(STORAGE_KEY);
-      const storedTheme = localStorage.getItem(STORAGE_THEME);
-      const storedFont = localStorage.getItem(STORAGE_FONT);
-      const storedWatermark = localStorage.getItem(STORAGE_WATERMARK);
+      const storedState = localStorage.getItem(STORAGE_KEY);
 
-      if (storedMarkdown !== null) markdown = storedMarkdown;
-      if (storedTheme !== null) previewTheme = storedTheme;
-      if (storedFont !== null) previewFont = storedFont;
-      if (storedWatermark !== null)
-        includeWatermark = storedWatermark === "true";
+      if (storedState) {
+        try {
+          const state: EditorState = JSON.parse(storedState);
+
+          if (state.paperId) {
+            markdown = state.markdown;
+            previewTheme = state.theme;
+            previewFont = state.font;
+            includeWatermark = state.watermark;
+            currentPaperId = state.paperId;
+            currentPaperTitle = state.paperTitle;
+          } else if (
+            !user &&
+            state.markdown !== DEFAULT_CONTENT &&
+            state.markdown.trim() !== ""
+          ) {
+            restorableState = state;
+            showRestoreDialog = true;
+          } else {
+            markdown = state.markdown;
+            previewTheme = state.theme;
+            previewFont = state.font;
+            includeWatermark = state.watermark;
+            currentPaperId = state.paperId;
+            currentPaperTitle = state.paperTitle;
+          }
+        } catch (e) {
+          console.error("Failed to parse stored state:", e);
+        }
+      }
 
       isLoaded = true;
     }
@@ -114,25 +160,15 @@ console.log("Beautiful code");
 
   $effect(() => {
     if (browser && isLoaded) {
-      localStorage.setItem(STORAGE_KEY, markdown);
-    }
-  });
-
-  $effect(() => {
-    if (browser && isLoaded) {
-      localStorage.setItem(STORAGE_THEME, previewTheme);
-    }
-  });
-
-  $effect(() => {
-    if (browser && isLoaded) {
-      localStorage.setItem(STORAGE_FONT, previewFont);
-    }
-  });
-
-  $effect(() => {
-    if (browser && isLoaded) {
-      localStorage.setItem(STORAGE_WATERMARK, String(includeWatermark));
+      const editorState: EditorState = {
+        markdown,
+        theme: previewTheme,
+        font: previewFont,
+        watermark: includeWatermark,
+        paperId: currentPaperId,
+        paperTitle: currentPaperTitle,
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(editorState));
     }
   });
 
@@ -158,6 +194,24 @@ console.log("Beautiful code");
     }
   }
 
+  function restorePreviousSession() {
+    if (restorableState) {
+      markdown = restorableState.markdown;
+      previewTheme = restorableState.theme;
+      previewFont = restorableState.font;
+      includeWatermark = restorableState.watermark;
+      currentPaperId = restorableState.paperId;
+      currentPaperTitle = restorableState.paperTitle;
+      restorableState = null;
+    }
+    showRestoreDialog = false;
+  }
+
+  function discardPreviousSession() {
+    restorableState = null;
+    showRestoreDialog = false;
+  }
+
   function showAlertDialog(
     message: string,
     type: "info" | "error" | "warning" | "success" = "info",
@@ -179,7 +233,20 @@ console.log("Beautiful code");
   function clearEditor() {
     showConfirm("Are you sure you want to clear all content?", () => {
       markdown = "";
-      localStorage.setItem(STORAGE_KEY, "");
+      currentPaperId = null;
+      currentPaperTitle = "";
+
+      if (browser) {
+        const editorState: EditorState = {
+          markdown: "",
+          theme: previewTheme,
+          font: previewFont,
+          watermark: includeWatermark,
+          paperId: null,
+          paperTitle: "",
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(editorState));
+      }
     });
   }
 
@@ -228,6 +295,18 @@ console.log("Beautiful code");
           currentPaperId = null;
           currentPaperTitle = "";
           papersStore.clearCurrentPaper();
+
+          if (browser) {
+            const editorState: EditorState = {
+              markdown: DEFAULT_CONTENT,
+              theme: previewTheme,
+              font: previewFont,
+              watermark: includeWatermark,
+              paperId: null,
+              paperTitle: "",
+            };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(editorState));
+          }
         },
       );
     } else {
@@ -400,6 +479,16 @@ console.log("Beautiful code");
     onCancel={() => {
       confirmAction = null;
     }}
+  />
+
+  <ConfirmDialog
+    bind:show={showRestoreDialog}
+    title="Restore Previous Session"
+    message="You have unsaved content from your previous session. Would you like to restore it?"
+    confirmText="Restore"
+    cancelText="Start Fresh"
+    onConfirm={restorePreviousSession}
+    onCancel={discardPreviousSession}
   />
 </div>
 

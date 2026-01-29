@@ -17,6 +17,8 @@
   let paperToDelete = $state<Paper | null>(null);
 
   onMount(() => {
+    authStore.init();
+
     const unsubscribe = authStore.subscribe((state) => {
       user = state.user;
       if (!state.loading && !state.user) {
