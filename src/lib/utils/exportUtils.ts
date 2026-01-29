@@ -12,11 +12,15 @@ export function downloadFile(content: string, type: string, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-export async function exportToPNG(elementId: string, backgroundColor: string) {
+export async function exportToPNG(
+  elementId: string,
+  backgroundColor: string,
+  includeWatermark: boolean = true,
+  theme?: ThemeConfig,
+) {
   const element = document.getElementById(elementId);
   if (!element) return;
 
-  // Temporarily fix overflow for code blocks during export
   const codeBlocks = element.querySelectorAll("pre");
   const originalStyles: { element: HTMLElement; overflow: string }[] = [];
 
@@ -27,6 +31,32 @@ export async function exportToPNG(elementId: string, backgroundColor: string) {
     htmlPre.style.whiteSpace = "pre-wrap";
     htmlPre.style.wordBreak = "break-word";
   });
+
+  // Add watermark if needed
+  let watermark: HTMLElement | null = null;
+  if (includeWatermark && theme) {
+    const isDarkTheme = theme.backgroundColor.startsWith("#")
+      ? parseInt(theme.backgroundColor.slice(1, 3), 16) < 128
+      : theme.id.includes("dark") ||
+        theme.id.includes("terminal") ||
+        theme.id.includes("sepia") ||
+        theme.id.includes("nord");
+    const watermarkColor = isDarkTheme
+      ? "rgba(255, 255, 255, 0.3)"
+      : "rgba(0, 0, 0, 0.3)";
+
+    watermark = document.createElement("div");
+    watermark.style.cssText = `position: absolute; bottom: 8px; right: 12px; font-size: 10px; color: ${watermarkColor}; pointer-events: none; font-family: system-ui, -apple-system, sans-serif;`;
+    watermark.innerHTML =
+      'rendered by <a href="https://paper.tsbin.tech" style="color: inherit; text-decoration: none;">paper.tsbin.tech</a>';
+
+    // Make element position relative if not already
+    const originalPosition = element.style.position;
+    if (!originalPosition || originalPosition === "static") {
+      element.style.position = "relative";
+    }
+    element.appendChild(watermark);
+  }
 
   try {
     const canvas = await html2canvas(element, {
@@ -50,6 +80,11 @@ export async function exportToPNG(elementId: string, backgroundColor: string) {
       element.style.whiteSpace = "";
       element.style.wordBreak = "";
     });
+
+    // Remove watermark if added
+    if (watermark && watermark.parentNode) {
+      watermark.parentNode.removeChild(watermark);
+    }
   }
 }
 
@@ -68,6 +103,17 @@ export function createHTMLExport(
   const description = descMatch
     ? descMatch[1].substring(0, 160)
     : "Document created with tsbin paper";
+
+  // Determine watermark color based on theme
+  const isDarkTheme = theme.backgroundColor.startsWith("#")
+    ? parseInt(theme.backgroundColor.slice(1, 3), 16) < 128
+    : theme.id.includes("dark") ||
+      theme.id.includes("terminal") ||
+      theme.id.includes("sepia") ||
+      theme.id.includes("nord");
+  const watermarkColor = isDarkTheme
+    ? "rgba(255, 255, 255, 0.3)"
+    : "rgba(0, 0, 0, 0.3)";
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -99,7 +145,7 @@ export function createHTMLExport(
 </head>
 <body>
 ${content}
-${includeWatermark ? '<div style="position: fixed; bottom: 8px; right: 12px; font-size: 10px; color: rgba(0, 0, 0, 0.3); pointer-events: none; font-family: system-ui, -apple-system, sans-serif;">rendered by <a href="https://paper.tsbin.tech" style="color: inherit; text-decoration: none;">paper.tsbin.tech</a></div>' : ""}
+${includeWatermark ? `<div style="position: fixed; bottom: 8px; right: 12px; font-size: 10px; color: ${watermarkColor}; pointer-events: none; font-family: system-ui, -apple-system, sans-serif;">rendered by <a href="https://paper.tsbin.tech" style="color: inherit; text-decoration: none;">paper.tsbin.tech</a></div>` : ""}
 </body>
 </html>`;
 }

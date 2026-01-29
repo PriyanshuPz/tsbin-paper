@@ -254,7 +254,12 @@ console.log("Beautiful code");
     if (!browser) return;
     const theme = getThemeById(previewTheme);
     try {
-      await exportToPNG("preview-card", theme?.backgroundColor || "#ffffff");
+      await exportToPNG(
+        "preview-card",
+        theme?.backgroundColor || "#ffffff",
+        includeWatermark,
+        theme || undefined,
+      );
       showAlertDialog("Image exported successfully!", "success");
     } catch (err) {
       showAlertDialog(
