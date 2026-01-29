@@ -45,7 +45,6 @@ export async function exportToPNG(elementId: string, backgroundColor: string) {
     console.error("Export failed:", err);
     throw err;
   } finally {
-    // Restore original styles
     originalStyles.forEach(({ element, overflow }) => {
       element.style.overflow = overflow;
       element.style.whiteSpace = "";
@@ -58,17 +57,17 @@ export function createHTMLExport(
   content: string,
   fontId: string,
   theme: ThemeConfig,
+  includeWatermark: boolean = true,
 ): string {
   const fontFamily = getFontFamily(fontId);
   const themeStyles = getThemeStyles(theme);
 
-  // Extract first heading for title and description
   const titleMatch = content.match(/<h1[^>]*>([^<]+)<\/h1>/);
   const title = titleMatch ? titleMatch[1] : "Paper Export";
   const descMatch = content.match(/<p[^>]*>([^<]+)<\/p>/);
   const description = descMatch
     ? descMatch[1].substring(0, 160)
-    : "Document created with paper";
+    : "Document created with tsbin paper";
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -78,16 +77,13 @@ export function createHTMLExport(
 	<meta name="generator" content="paper.tsbin.tech">
 	<meta name="description" content="${description.replace(/"/g, "&quot;")}">
 	
-	<!-- Favicon -->
 	<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>📄</text></svg>">
 	
-	<!-- Open Graph -->
 	<meta property="og:type" content="article">
 	<meta property="og:title" content="${title.replace(/"/g, "&quot;")}">
 	<meta property="og:description" content="${description.replace(/"/g, "&quot;")}">
 	<meta property="og:site_name" content="paper">
 	
-	<!-- Twitter Card -->
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="${title.replace(/"/g, "&quot;")}">
 	<meta name="twitter:description" content="${description.replace(/"/g, "&quot;")}">
@@ -103,6 +99,7 @@ export function createHTMLExport(
 </head>
 <body>
 ${content}
+${includeWatermark ? '<div style="position: fixed; bottom: 8px; right: 12px; font-size: 10px; color: rgba(0, 0, 0, 0.3); pointer-events: none; font-family: system-ui, -apple-system, sans-serif;">rendered by <a href="https://paper.tsbin.tech" style="color: inherit; text-decoration: none;">paper.tsbin.tech</a></div>' : ""}
 </body>
 </html>`;
 }

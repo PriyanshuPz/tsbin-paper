@@ -25,24 +25,6 @@
       <article class="prose max-w-none">
         {@html previewHtml}
       </article>
-
-      {#if includeWatermark}
-        <div
-          class="watermark"
-          style="margin-top: 3rem; padding-top: 2rem; border-top: 1px solid {getThemeById(
-            previewTheme,
-          )
-            ?.blockquoteBorder}; text-align: center; font-size: 0.75rem; opacity: 0.5;"
-        >
-          rendered with <a
-            href="https://paper.tsbin.tech"
-            target="_blank"
-            rel="noopener noreferrer"
-            style="color: inherit; text-decoration: none; border: none;"
-            >paper.tsbin.tech</a
-          >
-        </div>
-      {/if}
     </div>
   </div>
 </div>

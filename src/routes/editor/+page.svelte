@@ -57,11 +57,14 @@ console.log("Beautiful code");
   let isLoaded = $state(false);
   let user = $state<User | null>(null);
   let currentPaperId = $state<string | null>(null);
+  let currentPaperTitle = $state<string>("");
 
   let showPublishModal = $state(false);
   let showAlert = $state(false);
   let alertMessage = $state("");
   let alertType = $state<"info" | "error" | "warning" | "success">("info");
+  let alertActionText = $state<string | undefined>(undefined);
+  let alertActionUrl = $state<string | undefined>(undefined);
   let showConfirmDialog = $state(false);
   let confirmAction: (() => void) | null = null;
   let textarea = $state<HTMLTextAreaElement>();
@@ -77,12 +80,12 @@ console.log("Beautiful code");
 
     const unsubscribePapers = papersStore.subscribe((state) => {
       if (state.currentPaper && !currentPaperId) {
-        // Load paper into editor
         markdown = state.currentPaper.content;
         previewTheme = state.currentPaper.theme;
         previewFont = state.currentPaper.font;
         includeWatermark = state.currentPaper.watermark;
         currentPaperId = state.currentPaper.$id;
+        currentPaperTitle = state.currentPaper.title;
       }
     });
 
@@ -92,7 +95,6 @@ console.log("Beautiful code");
     };
   });
 
-  // Load from localStorage on mount
   $effect(() => {
     if (browser && !isLoaded) {
       const storedMarkdown = localStorage.getItem(STORAGE_KEY);
@@ -159,9 +161,13 @@ console.log("Beautiful code");
   function showAlertDialog(
     message: string,
     type: "info" | "error" | "warning" | "success" = "info",
+    actionText?: string,
+    actionUrl?: string,
   ) {
     alertMessage = message;
     alertType = type;
+    alertActionText = actionText;
+    alertActionUrl = actionUrl;
     showAlert = true;
   }
 
@@ -194,7 +200,12 @@ console.log("Beautiful code");
   function handleExportHTML() {
     const theme = getThemeById(previewTheme);
     if (!theme) return;
-    const html = createHTMLExport(previewHtml, previewFont, theme);
+    const html = createHTMLExport(
+      previewHtml,
+      previewFont,
+      theme,
+      includeWatermark,
+    );
     downloadFile(html, "text/html", "paper.html");
     showAlertDialog("HTML exported successfully!", "success");
   }
@@ -215,11 +226,13 @@ console.log("Beautiful code");
         () => {
           markdown = DEFAULT_CONTENT;
           currentPaperId = null;
+          currentPaperTitle = "";
           papersStore.clearCurrentPaper();
         },
       );
     } else {
       markdown = DEFAULT_CONTENT;
+      currentPaperTitle = "";
     }
   }
 
@@ -255,6 +268,7 @@ console.log("Beautiful code");
           userId: user.$id,
         });
         currentPaperId = paper.$id;
+        currentPaperTitle = title;
         showAlertDialog("Draft saved successfully!", "success");
       }
     } catch (error: any) {
@@ -269,9 +283,13 @@ console.log("Beautiful code");
       const theme = getThemeById(previewTheme);
       if (!theme) throw new Error("Invalid theme");
 
-      const html = createHTMLExport(previewHtml, previewFont, theme);
+      const html = createHTMLExport(
+        previewHtml,
+        previewFont,
+        theme,
+        includeWatermark,
+      );
 
-      // Call function which will upload to IPFS and save to database
       const { cid, gateway, paperId } = await publishToIPFS(
         html,
         title,
@@ -286,7 +304,12 @@ console.log("Beautiful code");
       );
 
       currentPaperId = paperId;
-      showAlertDialog("Paper published to IPFS successfully!", "success");
+      showAlertDialog(
+        "Paper published to IPFS successfully!",
+        "success",
+        "Visit Published Paper",
+        `https://${gateway}`,
+      );
     } catch (error: any) {
       throw new Error(error.message || "Failed to publish");
     }
@@ -347,12 +370,15 @@ console.log("Beautiful code");
   <PublishModal
     show={showPublishModal}
     {user}
+    currentTitle={currentPaperTitle}
     onClose={() => (showPublishModal = false)}
     onSaveDraft={handleSaveDraft}
     onPublish={handlePublishPaper}
   />
 
   <Alert
+    actionText={alertActionText}
+    actionUrl={alertActionUrl}
     bind:show={showAlert}
     message={alertMessage}
     type={alertType}

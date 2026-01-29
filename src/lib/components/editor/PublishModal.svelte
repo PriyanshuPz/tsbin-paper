@@ -5,12 +5,14 @@
   let {
     show,
     user,
+    currentTitle = "",
     onClose,
     onSaveDraft,
     onPublish,
   }: {
     show: boolean;
     user: User | null;
+    currentTitle?: string;
     onClose: () => void;
     onSaveDraft: (title: string) => Promise<void>;
     onPublish: (title: string) => Promise<void>;
@@ -20,6 +22,12 @@
   let saving = $state(false);
   let publishing = $state(false);
   let error = $state("");
+
+  $effect(() => {
+    if (show && currentTitle && !title) {
+      title = currentTitle;
+    }
+  });
 
   function handleBackdropClick() {
     if (!saving && !publishing) {
@@ -101,7 +109,11 @@
         id="modal-title"
         class="text-2xl font-semibold mb-2 text-text-primary"
       >
-        {user ? "Save or Publish Paper" : "Login Required"}
+        {#if user}
+          {currentTitle ? currentTitle : "Save or Publish Paper"}
+        {:else}
+          Login Required
+        {/if}
       </h2>
 
       {#if !user}

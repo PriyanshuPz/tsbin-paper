@@ -21,7 +21,7 @@
       </a>
       <a
         href="/editor"
-        class="text-text- no-underline hover:text-text-primary transition-colors"
+        class="px-3 sm:px-4 py-1 sm:py-1.5 text-xs bg-text-primary text-bg rounded hover:opacity-80 transition-opacity font-medium"
       >
         Editor
       </a>
