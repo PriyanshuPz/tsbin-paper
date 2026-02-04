@@ -391,8 +391,8 @@ console.log("Beautiful code");
       showAlertDialog(
         "Paper published to IPFS successfully!",
         "success",
-        "Visit Published Paper",
-        `https://${gateway}`,
+        `Visit Published Paper (cid ${cid})`,
+        `https://ipfs.io/ipfs/${cid}`,
       );
     } catch (error: any) {
       throw new Error(error.message || "Failed to publish");
